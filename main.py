@@ -114,7 +114,7 @@ def render_video(image_path, quote):
             "-i", "overlay.png",
             "-i", bgm_path,
             "-filter_complex", "[0][1]overlay",
-            "-t", "30",
+            "-t", "15",
             "-pix_fmt", "yuv420p",
             OUTPUT_FILE
         ])
