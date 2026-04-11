@@ -32,9 +32,13 @@ jobs:
       - name: Install Libraries
         run: pip install -r requirements.txt
 
-      # 🔥 IMPORTANT: Insta session create
-      - name: Create Insta Session File
-        run: echo "${{ secrets.INSTA_SESSION }}" | base64 -d > session.json
+      # 🔥 FIXED: Insta session decode (stable)
+      - name: Decode Instagram Session
+        run: |
+          echo "$INSTA_SESSION" > session.b64
+          base64 -d session.b64 > session.json
+        env:
+          INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
 
       - name: Run Bot
         env:
@@ -42,6 +46,7 @@ jobs:
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
           YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
         run: python main.py
 
       - name: Save Changes
