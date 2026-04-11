@@ -1,0 +1,8 @@
+instagrapi
+google-generativeai
+pillow
+imageio-ffmpeg
+google-api-python-client
+google-auth
+moviepy
+
