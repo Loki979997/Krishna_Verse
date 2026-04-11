@@ -15,7 +15,7 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
 # =========================
-# DECODE INSTA SESSION (GITHUB SAFE)
+# DECODE INSTA SESSION
 # =========================
 if "INSTA_SESSION" in os.environ:
     try:
@@ -78,7 +78,7 @@ Generate JSON:
         }
 
 # =========================
-# 2. VIDEO
+# 2. VIDEO (🔥 VIRAL STYLE)
 # =========================
 def render_video(image_path, quote):
     try:
@@ -96,13 +96,28 @@ def render_video(image_path, quote):
         overlay = Image.new("RGBA", (1080, 1920))
         draw = ImageDraw.Draw(overlay)
 
-        font = ImageFont.truetype(FONT_PATH, 60)
-        lines = textwrap.wrap(quote, width=25)
+        # 🔥 DARK BOX (bottom)
+        box = Image.new("RGBA", (1080, 500), (0, 0, 0, 120))
+        overlay.paste(box, (0, 1350), box)
+
+        font = ImageFont.truetype(FONT_PATH, 70)
+        lines = textwrap.wrap(quote, width=22)
 
         y = 1400
+
         for line in lines:
-            draw.text((100, y), line, font=font, fill="white")
-            y += 80
+            bbox = draw.textbbox((0, 0), line, font=font)
+            w = bbox[2] - bbox[0]
+
+            x = (1080 - w) // 2
+
+            # shadow
+            draw.text((x+3, y+3), line, font=font, fill="black")
+
+            # main text
+            draw.text((x, y), line, font=font, fill="white")
+
+            y += 90
 
         overlay.save("overlay.png")
 
@@ -166,7 +181,7 @@ def upload_instagram(video, caption):
         print("📸 Instagram Upload...")
 
         cl = Client()
-        cl.load_settings("session.json")  # no login = safe
+        cl.load_settings("session.json")
 
         time.sleep(random.randint(10, 30))
 
