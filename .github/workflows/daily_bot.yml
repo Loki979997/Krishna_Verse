@@ -4,43 +4,50 @@ on:
   schedule:
     - cron: "30 1 * * *"   # 7:00 AM IST
     - cron: "30 6 * * *"   # 12:00 PM IST
-    - cron: "0 13 * * *"   # 6:30 PM IST
-  workflow_dispatch:
+    - cron: "30 13 * * *"  # 7:00 PM IST
+  workflow_dispatch: {}
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  build-and-run:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      # ✅ Checkout latest code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
+      # ✅ Setup Python (latest stable)
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ✅ Install system dependencies
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y imagemagick ffmpeg
+          sudo apt-get install -y ffmpeg imagemagick
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+      # ✅ Install Python dependencies
+      - name: Install Python Libraries
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Install Libraries
-        run: pip install -r requirements.txt
-
-      # 🔥 FIXED: Insta session decode (stable)
+      # ✅ Decode Instagram Session (safe)
       - name: Decode Instagram Session
+        env:
+          INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
         run: |
           echo "$INSTA_SESSION" > session.b64
           base64 -d session.b64 > session.json
-        env:
-          INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
 
-      - name: Run Bot
+      # ✅ Run Main Bot
+      - name: Run Bot Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
@@ -49,10 +56,11 @@ jobs:
           INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
         run: python main.py
 
-      - name: Save Changes
+      # ✅ Commit only if changes exist (safe)
+      - name: Commit & Push Changes
         run: |
           git config --global user.name "KrishnaBot"
           git config --global user.email "bot@krishna.com"
-          git add images/ images_used/
-          git commit -m "Moved used image [skip ci]" || echo "No changes"
+          git add images/ images_used/ || true
+          git diff --cached --quiet || git commit -m "Auto update used images"
           git push
