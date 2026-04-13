@@ -1,11 +1,7 @@
 name: Krishna Reel Bot
 
 on:
-  schedule:
-    - cron: "30 0 * * *"   # 6:00 AM IST
-    - cron: "30 5 * * *"   # 11:00 AM IST
-    - cron: "30 12 * * *"  # 6:00 PM IST
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # 🔥 Sirf manual run
 
 permissions:
   contents: write
@@ -15,30 +11,25 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ✅ Checkout latest code
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # ✅ Setup Python (latest stable)
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      # ✅ Install system dependencies
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg imagemagick
           sudo sed -i 's/none/read,write/g' /etc/ImageMagick-6/policy.xml
 
-      # ✅ Install Python dependencies
       - name: Install Python Libraries
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ✅ Decode Instagram Session (safe)
       - name: Decode Instagram Session
         env:
           INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
@@ -46,7 +37,6 @@ jobs:
           echo "$INSTA_SESSION" > session.b64
           base64 -d session.b64 > session.json
 
-      # ✅ Run Main Bot
       - name: Run Bot Script
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -56,7 +46,6 @@ jobs:
           INSTA_SESSION: ${{ secrets.INSTA_SESSION }}
         run: python main.py
 
-      # ✅ Commit only if changes exist (safe)
       - name: Commit & Push Changes
         run: |
           git config --global user.name "KrishnaBot"
