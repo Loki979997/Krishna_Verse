@@ -6,7 +6,6 @@ import subprocess
 import json
 import time
 import base64
-import datetime
 
 import imageio_ffmpeg
 import google.generativeai as genai
@@ -16,43 +15,21 @@ from googleapiclient.http import MediaFileUpload
 from google.oauth2.credentials import Credentials
 
 # =========================
-# 🧠 SCHEDULER CONFIG
+# DECODE INSTA SESSION
 # =========================
-LOG_FILE = "upload_log.txt"
-
-TIME_WINDOWS = {
-    "morning": (6, 7),
-    "noon": (11, 12),
-    "evening": (19, 20)
-}
-
-def get_ist():
-    return datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
-
-def get_slot(hour):
-    for slot, (start, end) in TIME_WINDOWS.items():
-        if start <= hour < end:
-            return slot
-    return None
-
-def get_today():
-    return str(get_ist().date())  # ✅ FIXED IST DATE
-
-def already_uploaded(slot):
-    if not os.path.exists(LOG_FILE):
-        return False
-    with open(LOG_FILE, "r") as f:
-        logs = f.read().splitlines()
-    return f"{get_today()}-{slot}" in logs
-
-def mark_uploaded(slot):
-    with open(LOG_FILE, "a") as f:
-        f.write(f"{get_today()}-{slot}\n")
+if "INSTA_SESSION" in os.environ:
+    try:
+        with open("session.json", "wb") as f:
+            f.write(base64.b64decode(os.environ["INSTA_SESSION"]))
+        print("✅ session.json created")
+    except Exception as e:
+        print("❌ Session decode error:", e)
 
 # =========================
-# CONFIG & DIRECTORIES
+# CONFIG
 # =========================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 IMAGE_DIR = os.path.join(BASE_DIR, "images")
 USED_DIR = os.path.join(BASE_DIR, "images_used")
 BGM_DIR = os.path.join(BASE_DIR, "bgm")
@@ -70,45 +47,48 @@ os.makedirs(os.path.dirname(OUTPUT_FILE), exist_ok=True)
 # =========================
 def get_ai_quote(image_path):
     try:
-        print(f"👁️ Analyzing Image: {image_path}")
+        print(f"👁️ Vision AI: {image_path}")
+
         genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
         file = genai.upload_file(image_path)
 
         prompt = """
-        Generate a Hindi quote based on this image.
-        Return JSON only:
-        {
-        "quote": "2-line Hindi quote",
-        "title": "Viral Title",
-        "description": "Caption + Hashtags"
-        }
-        """
+Generate JSON:
+{
+"quote": "2-line Hindi quote",
+"title": "viral title with emojis",
+"description": "caption + hashtags"
+}
+"""
 
         res = model.generate_content([file, prompt])
-        raw = res.text.strip().replace("```json", "").replace("```", "")
+        raw = res.text.strip()
+
+        raw = raw.replace("```json", "").replace("```", "")
         return json.loads(raw)
 
     except Exception as e:
-        print(f"❌ AI ERROR: {e}")
+        print("❌ AI ERROR:", e)
         return {
-            "quote": "Radhe Radhe 🙏\nBhakti hi shakti hai ❤️",
-            "title": "Krishna Bhakti ✨",
-            "description": "#krishna #bhakti #viral"
+            "quote": "Zindagi ek safar hai\nMuskurate raho ❤️",
+            "title": "Motivation 💯",
+            "description": "#motivation #viral #life"
         }
 
 # =========================
-# 2. VIDEO RENDER
+# 2. VIDEO (🔥 VIRAL STYLE)
 # =========================
 def render_video(image_path, quote):
     try:
-        print("🎬 Rendering Video...")
+        print("🎬 Rendering...")
 
         if not os.listdir(BGM_DIR):
-            raise Exception("No BGM found")
+            raise Exception("BGM folder empty")
 
-        bgm_path = os.path.join(BGM_DIR, random.choice(os.listdir(BGM_DIR)))
+        bgm = random.choice(os.listdir(BGM_DIR))
+        bgm_path = os.path.join(BGM_DIR, bgm)
 
         img = Image.open(image_path).resize((1080, 1920))
         img.save("bg.png")
@@ -116,18 +96,28 @@ def render_video(image_path, quote):
         overlay = Image.new("RGBA", (1080, 1920))
         draw = ImageDraw.Draw(overlay)
 
-        box = Image.new("RGBA", (1080, 500), (0, 0, 0, 140))
+        # 🔥 DARK BOX (bottom)
+        box = Image.new("RGBA", (1080, 500), (0, 0, 0, 120))
         overlay.paste(box, (0, 1350), box)
 
         font = ImageFont.truetype(FONT_PATH, 70)
         lines = textwrap.wrap(quote, width=22)
 
         y = 1400
+
         for line in lines:
             bbox = draw.textbbox((0, 0), line, font=font)
-            x = (1080 - (bbox[2] - bbox[0])) // 2
+            w = bbox[2] - bbox[0]
+
+            x = (1080 - w) // 2
+
+            # shadow
+            draw.text((x+3, y+3), line, font=font, fill="black")
+
+            # main text
             draw.text((x, y), line, font=font, fill="white")
-            y += 95
+
+            y += 90
 
         overlay.save("overlay.png")
 
@@ -147,11 +137,11 @@ def render_video(image_path, quote):
         return OUTPUT_FILE
 
     except Exception as e:
-        print(f"❌ RENDER ERROR: {e}")
+        print("❌ VIDEO ERROR:", e)
         return None
 
 # =========================
-# 3. UPLOADERS
+# 3. YOUTUBE
 # =========================
 def upload_to_youtube(video, title, desc):
     try:
@@ -160,81 +150,72 @@ def upload_to_youtube(video, title, desc):
             refresh_token=os.environ["YOUTUBE_REFRESH_TOKEN"],
             token_uri="https://oauth2.googleapis.com/token",
             client_id=os.environ["YOUTUBE_CLIENT_ID"],
-            client_secret=os.environ["YOUTUBE_CLIENT_SECRET"]
+            client_secret=os.environ["YOUTUBE_CLIENT_SECRET"],
+            scopes=["https://www.googleapis.com/auth/youtube.upload"]
         )
 
         youtube = build("youtube", "v3", credentials=creds)
 
-        youtube.videos().insert(
+        req = youtube.videos().insert(
             part="snippet,status",
             body={
                 "snippet": {"title": title, "description": desc},
                 "status": {"privacyStatus": "public"}
             },
             media_body=MediaFileUpload(video)
-        ).execute()
+        )
 
+        req.execute()
         print("✅ YouTube Uploaded")
 
     except Exception as e:
-        print(f"❌ YouTube ERROR: {e}")
+        print("❌ YouTube ERROR:", e)
 
+# =========================
+# 4. INSTAGRAM
+# =========================
 def upload_instagram(video, caption):
     try:
         from instagrapi import Client
 
+        print("📸 Instagram Upload...")
+
         cl = Client()
-
-        session_data = base64.b64decode(os.environ["INSTA_SESSION"])
-        with open("session.json", "wb") as f:
-            f.write(session_data)
-
         cl.load_settings("session.json")
 
-        time.sleep(random.randint(15, 45))
+        time.sleep(random.randint(10, 30))
+
         cl.clip_upload(video, caption=caption)
 
         print("✅ Instagram Uploaded")
 
     except Exception as e:
-        print(f"❌ Instagram ERROR: {e}")
+        print("❌ Instagram ERROR:", e)
 
 # =========================
-# 🚀 EXECUTION
+# MAIN
 # =========================
 if __name__ == "__main__":
-    now = get_ist()
-    slot = get_slot(now.hour)
+    try:
+        images = os.listdir(IMAGE_DIR)
 
-    print(f"⏰ IST Time: {now.strftime('%H:%M:%S')}")
+        if not images:
+            raise Exception("No images found")
 
-    if slot and not already_uploaded(slot):
-        print(f"🚀 Running for: {slot}")
+        img = random.choice(images)
+        path = os.path.join(IMAGE_DIR, img)
 
-        try:
-            images = [i for i in os.listdir(IMAGE_DIR) if i.lower().endswith(('.png', '.jpg', '.jpeg'))]
+        ai = get_ai_quote(path)
 
-            if not images:
-                raise Exception("Images folder empty!")
+        video = render_video(path, ai["quote"])
 
-            img_name = random.choice(images)
-            img_path = os.path.join(IMAGE_DIR, img_name)
+        if video:
+            upload_to_youtube(video, ai["title"], ai["description"])
+            upload_instagram(video, ai["description"])
 
-            ai_data = get_ai_quote(img_path)
+            shutil.move(path, os.path.join(USED_DIR, img))
 
-            video_path = render_video(img_path, ai_data["quote"])
+        print("🔥 ALL DONE")
 
-            if video_path:
-                upload_to_youtube(video_path, ai_data["title"], ai_data["description"])
-                upload_instagram(video_path, ai_data["description"])
-
-                shutil.move(img_path, os.path.join(USED_DIR, img_name))
-                mark_uploaded(slot)
-
-                print(f"🔥 SUCCESS: {slot} upload done!")
-
-        except Exception as e:
-            print(f"💀 CRITICAL ERROR: {e}")
-
-    else:
-        print("😴 Skip: Not time or already uploaded.")
+    except Exception as e:
+        print("💀 MAIN ERROR:", e)
