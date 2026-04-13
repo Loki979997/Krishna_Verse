@@ -1,9 +1,7 @@
 name: Krishna Reel Bot
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"   # 🔥 har 10 min run
-  workflow_dispatch: {}
+  workflow_dispatch: {}   # 🔥 Sirf manual run
 
 permissions:
   contents: write
@@ -52,8 +50,6 @@ jobs:
         run: |
           git config --global user.name "KrishnaBot"
           git config --global user.email "bot@krishna.com"
-
-          git add images/ images_used/ upload_log.txt || true
-
-          git diff --cached --quiet || git commit -m "Auto update (images + log)"
+          git add images/ images_used/ || true
+          git diff --cached --quiet || git commit -m "Auto update used images"
           git push
